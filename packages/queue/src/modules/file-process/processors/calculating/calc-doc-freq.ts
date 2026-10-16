@@ -10,8 +10,8 @@ export const calculateDocFrequency = (
 
     const unProcessedTokensList: {
       literal: string;
-      phonetic: string;
-      altPhonetic: string;
+      phonetic: string | null;
+      altPhonetic: string | null;
     }[][] = [];
     const unProcessedTitleTokensList: {
       literal: string;

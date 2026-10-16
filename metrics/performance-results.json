@@ -1,15 +1,15 @@
 {
-  "jobId": "1",
-  "processedAt": "2026-10-15T17:37:25.516Z",
+  "jobId": "2",
+  "processedAt": "2026-10-16T09:43:42.440Z",
   "metrics": {
-    "total-job-time": 215480.54,
-    "read-file": 453.99,
-    "parse-json": 0.01,
-    "store-doc": 2118.77,
-    "calculate-doc-freq": 28706.33,
-    "calculate-idf-score": 88.67,
-    "store-tokens": 3025.9,
-    "calculate-score": 5468.21,
-    "store-scores": 175617.79
+    "total-job-time": 112159.51,
+    "read-file": 458.58,
+    "parse-json": 0,
+    "store-doc": 555.7,
+    "calculate-doc-freq": 29158.12,
+    "calculate-idf-score": 96.77,
+    "store-tokens": 3573.95,
+    "calculate-score": 5551.65,
+    "store-scores": 72760.92
   }
 }

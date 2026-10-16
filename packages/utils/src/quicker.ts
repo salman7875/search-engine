@@ -3,35 +3,38 @@ import { eng } from "./stopwords/stopword_eng.js";
 
 const engSet = new Set(eng.map((w) => w.toLowerCase()));
 
-const removeStopWords = (tokens: string[]): string[] => {
-  return tokens.filter((t) => !engSet.has(t.toLowerCase()));
+const tokenizer = new natural.WordTokenizer();
+const dm = new natural.DoubleMetaphone();
+
+type ProcessedToken = {
+  literal: string;
+  phonetic: string | null;
+  altPhonetic: string | null;
 };
 
-const processTextPipeline = (
-  text: string,
-): { literal: string; phonetic: string; altPhonetic: string }[] => {
-  try {
-    const tokenizer = new natural.WordTokenizer();
-    const dm = new natural.DoubleMetaphone();
+export const processTextPipeline = (text: string): ProcessedToken[] => {
+  const tokens = (tokenizer.tokenize((text ?? "").toLowerCase()) ?? []).filter(
+    (t) => !engSet.has(t),
+  );
 
-    const rawTokens = tokenizer.tokenize(text || "") || [];
-    const filteredTokens = rawTokens.filter(
-      (t) => !engSet.has(t.toLowerCase()),
-    );
+  return tokens.map((token) => {
+    const literal = natural.PorterStemmer.stem(token);
 
-    return filteredTokens.map((token) => {
-      const stemmed = natural.PorterStemmer.stem(token.toLowerCase());
-      const phoneticResult = dm.process(token, 4);
-      return {
-        literal: stemmed,
-        phonetic: (phoneticResult[0] || "").toLowerCase(),
-        altPhonetic: (phoneticResult[1] || "").toLowerCase(),
-      };
-    });
-  } catch (error) {
-    console.error(`Error in text pipeline processing:`, error);
-    throw error;
-  }
+    if (token.length < 3 || !/^[a-z]+$/.test(token)) {
+      return { literal, phonetic: null, altPhonetic: null };
+    }
+
+    const [primary = "", secondary = ""] = dm.process(token, 6);
+    return {
+      literal,
+      phonetic: primary || null,
+      altPhonetic: secondary && secondary !== primary ? secondary : null,
+    };
+  });
+};
+
+const removeStopWords = (tokens: string[]): string[] => {
+  return tokens.filter((t) => !engSet.has(t.toLowerCase()));
 };
 
 export const quicker = {
