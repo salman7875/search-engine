@@ -46,7 +46,12 @@ const createSchema = `
     FOREIGN KEY (doc_id) REFERENCES docs(id)
   );
 
+
+  CREATE INDEX IF NOT EXISTS idx_token_id ON scores(token_id);
+  CREATE INDEX IF NOT EXISTS idx_scores_token_tfscore ON scores(token_id, tf_score DESC);
+
   CREATE INDEX IF NOT EXISTS idx_vocabulary_phonetic ON vocabulary(phonetic_token);
+  CREATE INDEX IF NOT EXISTS idx_vocabulary_alt_phonetic ON vocabulary(alt_phonetic_token);
 `;
 
 db.exec(createSchema);

@@ -21,7 +21,7 @@ const processTextPipeline = (
 
     return filteredTokens.map((token) => {
       const stemmed = natural.PorterStemmer.stem(token.toLowerCase());
-      const phoneticResult = dm.process(token, 3);
+      const phoneticResult = dm.process(token, 4);
       return {
         literal: stemmed,
         phonetic: (phoneticResult[0] || "").toLowerCase(),

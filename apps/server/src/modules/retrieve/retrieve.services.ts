@@ -1,4 +1,3 @@
-// import db from '../../libs/schema/db.js';
 import db from '@repo/db';
 import {
   DocumentRecord,
@@ -9,7 +8,18 @@ import {
 const getVocabs = (phoneticTokens: string[]): VocabularyRecord[] => {
   try {
     if (phoneticTokens.length === 0) return [];
+
     const placeholders = phoneticTokens.map(() => '?').join(', ');
+
+    const explain =
+      db.prepare(`EXPLAIN QUERY PLAN SELECT id, token, phonetic_token, alt_phonetic_token, idf_score 
+      FROM vocabulary 
+      WHERE phonetic_token IN (${placeholders}) OR alt_phonetic_token IN (${placeholders})`);
+    console.log(
+      'THIS IS EXPLAIN IN ACTION!! \n',
+      explain.all([...phoneticTokens, ...phoneticTokens]),
+    );
+
     return db
       .prepare(
         `
@@ -40,10 +50,25 @@ const getVocabFromToken = (tokens: string[]) => {
 const getScores = (tokenIds: number[]) => {
   try {
     if (tokenIds.length === 0) return { scoresRes: [], docIds: [] };
+
     const placeholders = tokenIds.map(() => '?').join(', ');
     const scoresRes = db
       .prepare(`SELECT * FROM scores WHERE token_id IN (${placeholders})`)
       .all(tokenIds) as ScoreRecord[];
+    //   const scoresRes = db
+    //     .prepare(
+    //       `
+    //   SELECT token_id, doc_id, tf_score, position FROM (
+    //     SELECT *, ROW_NUMBER() OVER (PARTITION BY token_id ORDER BY tf_score DESC) AS rn
+    //     FROM scores
+    //     WHERE token_id IN (${placeholders})
+    //   )
+    //   WHERE rn <= ?
+    // `,
+    //     )
+    //     .all(...tokenIds, 10) as ScoreRecord[];
+    console.log('✨', scoresRes.length, tokenIds.length);
+
     const docIds = [...new Set(scoresRes.map((s) => s.doc_id))];
     return { scoresRes, docIds };
   } catch (error) {
@@ -197,6 +222,7 @@ const weightingAndMergingDocs = (
     throw error;
   }
 };
+
 export const retrieveService = {
   getVocabFromToken,
   getScores,

@@ -1,0 +1,12 @@
+{
+  "processedAt": "2026-09-01T12:22:44.640Z",
+  "metrics": {
+    "total-job-time": 3793.13,
+    "pipeline": 4.71,
+    "mapping-pipeline": 0.03,
+    "vocab-from-token-end": 68.52,
+    "get-score": 3253.74,
+    "get-doc-end": 266.26,
+    "weight-and-merge": 198.75
+  }
+}

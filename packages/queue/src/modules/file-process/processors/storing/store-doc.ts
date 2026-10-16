@@ -14,7 +14,7 @@ export const storeDoc = (
 
     const insertMany = db.transaction((docsList) => {
       for (const doc of docsList) {
-        const tokensCount = doc.text ? doc.text.split(/\s+/).length : 0;
+        const tokensCount = doc.text ? doc.text.match(/\S+/g)?.length || 0 : 0;
         const result = insertDoc.get(doc.title, doc.text, tokensCount) as {
           id: number;
         };
