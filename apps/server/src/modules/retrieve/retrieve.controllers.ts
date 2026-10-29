@@ -1,134 +1,81 @@
 import type { Request, Response } from 'express';
 import { quicker } from '@repo/utils';
-import { performance, PerformanceObserver } from 'node:perf_hooks';
-import fs from 'node:fs/promises';
 
-import { retrieveService } from './retrieve.services.js';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { IndexData } from './retreive.types.js';
+import { retriveService } from './retrieve.services.js';
+import { retrieveUtils } from './retrieve.utils.js';
 
-const results: Record<string, number> = {};
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
+let index: IndexData | undefined;
+
+
+const k1 = 1.5;
+const B = 0.75;
 
 const getAllDocs = async (req: Request, res: Response) => {
-  // const { query } = req.query as { query: string };
+  const { query, lm } = req.query as { query: string, lm: string };
+  const limit = parseInt(lm)
 
-  // try {
-  //   if (!query || query.trim() === '') {
-  //     return res.status(200).json({
-  //       success: true,
-  //       message: '[Invalid Query]: Please provide the query!',
-  //       data: [],
-  //     });
-  //   }
+  try {
+    index ??= retriveService.loadIndex();
+    if (!index) {
+      return res.status(503).json({
+        success: false,
+        message: 'Search index is not ready yet.',
+      });
+    }
 
-  //   performance.mark('job-start');
+    const searchIndex = index;
+    const scoreMap = new Map()
+    const tokens = quicker.generateTokens(query)
 
-  //   performance.mark('pipeline-start');
-  //   const queryPipeline = quicker.processTextPipeline(query);
-  //   performance.mark('pipeline-end');
-  //   performance.measure('pipeline', 'pipeline-start', 'pipeline-end');
+    for (const token of new Set(tokens)) {
+      for (const { term, weight } of retriveService.resolveToken(searchIndex, token)) {
+        const entry = searchIndex.lexicon[term];
+        if (!entry) {
+          throw new Error(`Missing lexicon entry for term "${term}"`);
+        }
+        const { df, off, len } = entry;
+        const postings = JSON.parse(retrieveUtils.readSlice(searchIndex.postings, off, len))
+        const idf = Math.log(1 + (searchIndex.meta.N - df + 0.5) / (df * 0.5))
 
-  //   performance.mark('mapping-pipeline-start');
-  //   const phoneticTokens = queryPipeline.map((p) => p.phonetic);
-  //   const literalTokens = queryPipeline.map((p) => p.literal);
-  //   performance.mark('mapping-pipeline-end');
-  //   performance.measure(
-  //     'mapping-pipeline',
-  //     'mapping-pipeline-start',
-  //     'mapping-pipeline-end',
-  //   );
+        for (const [unitId, tf] of postings) {
+          const unitLen = searchIndex.meta.lens[unitId];
+          if (unitLen === undefined) {
+            throw new Error(`Missing index length for unit ${unitId}`);
+          }
+          const norm = 1 - B + (B * unitLen) / searchIndex.meta.avgLen
+          const score = weight * idf * ((tf * (k1 + 1)) / (tf + k1 + norm))
+          scoreMap.set(unitId, (scoreMap.get(unitId) || 0) + score)
+        }
+      }
+    }
 
-  //   performance.mark('vocab-from-token-start');
-  //   const { vocabMap, tokenIds } =
-  //     retrieveService.getVocabFromToken(phoneticTokens);
-  //   performance.mark('vocab-from-token-end');
-  //   performance.measure(
-  //     'vocab-from-token-end',
-  //     'vocab-from-token-start',
-  //     'vocab-from-token-end',
-  //   );
+    const bestPerDoc = new Map();
+    for (const [unitId, score] of [...scoreMap].sort((a, b) => b[1] - a[1])) {
+      const unit = retriveService.getUnit(searchIndex, unitId)
+      if (!bestPerDoc.has(unitId)) {
+        bestPerDoc.set(unitId, { ...unit, score, snippet: unit.text.slice(0, 200) })
+      }
 
-  //   if (!tokenIds || tokenIds.length === 0) {
-  //     return res.status(200).json({
-  //       success: true,
-  //       message: 'No matching results found.',
-  //       data: [],
-  //     });
-  //   }
+      if (bestPerDoc.size >= limit) break;
+    }
 
-  //   performance.mark('get-score-start');
-  //   const { scoresRes, docIds } = retrieveService.getScores(tokenIds);
-  //   performance.mark('get-score-end');
-  //   performance.measure('get-score', 'get-score-start', 'get-score-end');
-
-  //   if (!docIds || docIds.length === 0) {
-  //     return res.status(200).json({
-  //       success: true,
-  //       message: 'No documents match the search criteria.',
-  //       data: [],
-  //     });
-  //   }
-
-  //   performance.mark('get-doc-start');
-  //   const { docRes } = retrieveService.getDocs(docIds);
-  //   performance.mark('get-doc-end');
-  //   performance.measure('get-doc-end', 'get-doc-start', 'get-doc-end');
-
-  //   performance.mark('weight-and-merge-start');
-  //   const result = retrieveService.weightingAndMergingDocs(
-  //     literalTokens,
-  //     docRes,
-  //     scoresRes,
-  //     vocabMap,
-  //   );
-  //   performance.mark('weight-and-merge-end');
-  //   performance.measure(
-  //     'weight-and-merge',
-  //     'weight-and-merge-start',
-  //     'weight-and-merge-end',
-  //   );
-
-  //   performance.mark('job-end');
-  //   performance.measure('total-job-time', 'job-start', 'job-end');
-
-  //   await new Promise((resolve) => setImmediate(resolve));
-
-  //   const outputPath = path.join(
-  //     __dirname,
-  //     '../../../../../metrics/',
-  //     'retrieving-perf-results.json',
-  //   );
-
-  //   await fs.writeFile(
-  //     outputPath,
-  //     JSON.stringify(
-  //       {
-  //         processedAt: new Date().toISOString(),
-  //         metrics: results,
-  //       },
-  //       null,
-  //       2,
-  //     ),
-  //     'utf-8',
-  //   );
-
-  //   res.status(200).json({
-  //     success: true,
-  //     message: 'Results are here!',
-  //     data: result,
-  //   });
-  // } catch (error: unknown) {
-  //   const errorMessage = error instanceof Error ? error.message : String(error);
-  //   res.status(500).json({
-  //     success: false,
-  //     message: 'Something went wrong!',
-  //     err: errorMessage,
-  //   });
-  // }
+    const result = [...bestPerDoc.values()]
+    res.status(200).json({
+      success: true,
+      message: 'Results are here!',
+      data: result,
+    });
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong!',
+      err: errorMessage,
+    });
+  }
 };
 
 export const retrieveController = {

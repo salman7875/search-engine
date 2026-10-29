@@ -39,25 +39,21 @@ const getUploadUrl = async (fileName: string, fileType: string, file: any) => {
   }
 };
 
-const getResult = async (q: string): Promise<APIResponse<RetrieveData[]>> => {
+const getResult = async (q: string): Promise<RetrieveData[]> => {
   try {
     const encodedQuery = encodeURIComponent(q);
     const res = await fetch(`${API_URL}/doc/retrieve?query=${encodedQuery}`);
-
-    if (!res.ok) {
-      const errorText = await res
-        .text()
-        .catch(() => "Failed to fetch response");
-      throw new Error(`Server Error (${res.status}): ${errorText}`);
-    }
-
     const resData: APIResponse<RetrieveData[]> = await res.json();
 
-    if (!resData.success) {
+    if (!res.ok || !resData.success) {
       throw new Error(resData.message ?? "Failed to fetch response");
     }
 
-    return resData;
+    if (!Array.isArray(resData.data)) {
+      throw new Error("The search response did not contain a results list.");
+    }
+
+    return resData.data;
   } catch (error) {
     handleAPIError(error);
     throw error;

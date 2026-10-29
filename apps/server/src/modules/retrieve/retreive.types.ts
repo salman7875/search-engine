@@ -1,21 +1,23 @@
-export type VocabularyRecord = {
-  id: number;
-  token: string;
-  phonetic_token: string;
-  alt_phonetic_token: string;
-  idf_score: number;
+export type LexiconEntry = {
+  df: number;
+  off: number;
+  len: number;
 };
 
-export type DocumentRecord = {
-  id: number;
-  title: string;
-  content: string;
-  total_token: number;
+export type IndexData = {
+  units: Buffer;
+  postings: Buffer;
+  unitOffsets: number[];
+  meta: {
+    N: number;
+    avgLen: number;
+    lens: number[];
+  };
+  lexicon: Record<string, LexiconEntry>;
+  phonetic: Record<string, string[]>;
 };
 
-export type ScoreRecord = {
-  token_id: number;
-  doc_id: number;
-  tf_score: number;
-  position: Buffer<ArrayBufferLike>;
-};
+export type ResolvedType = {
+  term: string;
+  weight: number;
+}

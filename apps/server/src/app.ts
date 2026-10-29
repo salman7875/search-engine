@@ -6,7 +6,6 @@ import path from 'path';
 import express from 'express';
 import cors from 'cors';
 import { fileURLToPath } from 'node:url';
-import db from '@repo/db';
 
 import { uploadRoutes } from './modules/upload/index.js';
 import { retrieveRoutes } from './modules/retrieve/index.js';

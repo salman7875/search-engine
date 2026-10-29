@@ -16,14 +16,12 @@ const ResultList = () => {
         setIsLoading(true);
         setError(null);
         if (!search) return;
-        const res = await API.getResult(search);
-        if (!res.success) {
-          throw new Error(res?.message ?? "Something went wrong!");
-        }
-        setData(res.data as RetrieveData[]);
+        const results = await API.getResult(search);
+        setData(results);
       } catch (error) {
-        // @ts-ignore
-        setError((error?.message as string) || "Something went wrong!");
+        setError(
+          error instanceof Error ? error.message : "Something went wrong!",
+        );
       } finally {
         setIsLoading(false);
       }
@@ -42,9 +40,13 @@ const ResultList = () => {
   return (
     <main className="max-w-3xl mx-auto px-4 py-10">
       <div className="space-y-10">
-        {data.map((result: RetrieveData) => (
-          <ResultItem result={result} />
-        ))}
+        {data.length === 0 ? (
+          <p className="text-center text-zinc-500">No results found.</p>
+        ) : (
+          data.map((result: RetrieveData) => (
+            <ResultItem key={result.id} result={result} />
+          ))
+        )}
       </div>
     </main>
   );

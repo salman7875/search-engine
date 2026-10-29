@@ -4,17 +4,12 @@ export interface APIResponse<T = any> {
   data?: T;
 }
 
-type DocData = {
-  id: number;
-  title: string;
-  content: string;
-  total_token: number;
-};
-
 export type RetrieveData = {
-  doc_id: number;
-  docs: DocData;
-  totalScore: number;
-  proximityScore: number;
-  finalScore: number;
+  id: number;
+  docId: number;
+  title: string;
+  text: string;
+  len: number;
+  score: number;
+  snippet: string;
 };
