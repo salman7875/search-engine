@@ -4,10 +4,16 @@ volumes:
   sqlite-data:
   floci-data:
 
+networks:
+  app-network:
+    driver: bridge
+
 services:
   redis-infra:
     image: redis
     restart: always
+    networks:
+      - app-network
     ports:
       - "6379:6379"
     volumes:
@@ -21,6 +27,8 @@ services:
 
   redis-insight:
     image: redis/redisinsight:latest
+    networks:
+      - app-network
     ports:
       - "5540:5540"
     volumes:
@@ -30,6 +38,8 @@ services:
 
   bull:
     image: venatum/bull-board:latest
+    networks:
+      - app-network
     ports:
       - "4000:3000"
     environment:
@@ -41,6 +51,8 @@ services:
 
   floci:
     image: floci/floci
+    networks:
+      - app-network
     container_name: floci
     ports:
       - "4566:4566"
@@ -58,6 +70,8 @@ services:
       dockerfile: ./apps/server/Dockerfile
       target: dev
     container_name: server
+    networks:
+      - app-network
     environment:
       - PORT=3000
       - REDIS_HOST=redis-infra
@@ -84,6 +98,8 @@ services:
       dockerfile: ./apps/worker/Dockerfile
       target: dev
     container_name: worker
+    networks:
+      - app-network
     environment:
       - NODE_OPTIONS=--max-old-space-size=5120
       - REDIS_HOST=redis-infra
@@ -99,5 +115,4 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
-      - /app/apps/worker/node_modules
       - sqlite-data:/app/data

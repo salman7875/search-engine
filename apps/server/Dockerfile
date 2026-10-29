@@ -1,5 +1,5 @@
 # STAGE 1 - PRUNE LAYER
-FROM node:20-bookworm-slim AS pruner
+FROM node:24-bookworm-slim AS pruner
 RUN npm i -g turbo
 WORKDIR /app
 COPY . .
@@ -7,7 +7,7 @@ RUN turbo prune --scope=@repo/server --docker --out-dir=json-pruned
 
 
 # STAGE 2 - BASE LAYER (includes build dependencies for native packages like SQLite/Sharp)
-FROM node:20-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 WORKDIR /monorepo
 RUN apt-get update && apt-get install -y \
     python3 \
@@ -20,7 +20,7 @@ RUN apt-get update && apt-get install -y \
 FROM base AS builder
 COPY --from=pruner /app/json-pruned/json/ .
 COPY package-lock.json package.json ./
-RUN --mount=type=cache,id=npm,target=/root/.npm npm ci  
+RUN --mount=type=cache,id=npm,target=/root/.npm npm i  
 
 
 # STAGE 4 - DEV LAYER
@@ -41,11 +41,11 @@ RUN npm run build --filter=@repo/server
 FROM builder AS prod-installer
 COPY --from=pruner /app/json-pruned/json/ .
 COPY package-lock.json package.json ./
-RUN --mount=type=cache,id=npm,target=/root/.npm npm ci
+RUN --mount=type=cache,id=npm,target=/root/.npm npm i
 
 
 # STAGE 7 - FINAL LAYER (That runs production image)
-FROM node:20-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /usr/src/app
 ENV NODE_ENV=production
 

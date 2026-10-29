@@ -1,43 +1,46 @@
-import natural from "natural";
-import { eng } from "./stopwords/stopword_eng.js";
+import natural from "natural"
+import {eng} from "./stopwords/stopword_eng.js"
 
-const engSet = new Set(eng.map((w) => w.toLowerCase()));
+const tokenizer = new natural.WordTokenizer()
+const dm = new natural.DoubleMetaphone()
+const hasWord = new Set(eng.map(e => e))
 
-const tokenizer = new natural.WordTokenizer();
-const dm = new natural.DoubleMetaphone();
+const stemCache = new Map()
+const phoneticCache = new Map()
 
-type ProcessedToken = {
-  literal: string;
-  phonetic: string | null;
-  altPhonetic: string | null;
-};
-
-export const processTextPipeline = (text: string): ProcessedToken[] => {
-  const tokens = (tokenizer.tokenize((text ?? "").toLowerCase()) ?? []).filter(
-    (t) => !engSet.has(t),
-  );
-
-  return tokens.map((token) => {
-    const literal = natural.PorterStemmer.stem(token);
-
-    if (token.length < 3 || !/^[a-z]+$/.test(token)) {
-      return { literal, phonetic: null, altPhonetic: null };
+const stem = (token: string) => {
+    let cache = stemCache.get(token);
+    if (!cache) {
+        cache = natural.PorterStemmer.stem(token)
+        stemCache.set(token, cache)
     }
+    return cache
+}
 
-    const [primary = "", secondary = ""] = dm.process(token, 6);
-    return {
-      literal,
-      phonetic: primary || null,
-      altPhonetic: secondary && secondary !== primary ? secondary : null,
-    };
-  });
-};
+const generateTokens = (text: string) => {
+    let tokens = []
 
-const removeStopWords = (tokens: string[]): string[] => {
-  return tokens.filter((t) => !engSet.has(t.toLowerCase()));
-};
+    for (const token of tokenizer.tokenize(text.toLowerCase())) {
+        if (hasWord.has(token)) continue;
+        tokens.push(stem(token))
+    }
+    return tokens
+}
 
-export const quicker = {
-  removeStopWords,
-  processTextPipeline,
-};
+const generatePhoneticTokens = (token: string) => {
+    let cache = phoneticCache.get(token)
+    if (!cache) {
+        cache = []
+        if (token.length >= 3 && /^[a-z]+$/.test(token)){
+            const [primary = "", secondary = ""] = dm.process(token, 6)
+            cache.push(primary)
+            if (secondary && secondary !== primary) {
+                cache.push(secondary)
+            }
+        }
+        phoneticCache.set(token, cache)
+    }
+    return cache
+}
+
+export const quicker = { generateTokens, generatePhoneticTokens }

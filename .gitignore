@@ -40,6 +40,9 @@ yarn-error.log*
 # 
 /apps/server/data/*.json
 
+/store
+/store.tmp
+
 # SQLite Databases & Storage
 test.db
 *.db

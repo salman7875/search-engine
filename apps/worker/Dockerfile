@@ -1,5 +1,5 @@
 # STAGE 1 - PRUNE LAYER
-FROM node:20-bookworm-slim AS pruner
+FROM node:24-bookworm-slim AS pruner
 RUN npm i -g turbo
 WORKDIR /app
 COPY . .
@@ -7,7 +7,7 @@ RUN turbo prune --scope=@repo/worker --docker --out-dir=json-pruned
 
 
 # STAGE 2 - BASE LAYER (includes build dependencies for native packages like SQLite/Sharp)
-FROM node:20-bookworm-slim AS base
+FROM node:24-bookworm-slim AS base
 RUN apt-get update && apt-get install -y \
     python3 \
     make \
@@ -19,7 +19,7 @@ WORKDIR /app
 # STAGE 3 - BUILDER LAYER (installing deps using Turbo's pruned lockfile)
 FROM base AS builder
 COPY --from=pruner /app/json-pruned/json/ .
-RUN --mount=type=cache,id=npm,target=/root/.npm npm ci
+RUN --mount=type=cache,id=npm,target=/root/.npm npm i
 
 
 # STAGE 4 - DEV LAYER
@@ -38,11 +38,11 @@ RUN npx turbo run build --filter=@repo/worker...
 # STAGE 6 - PRODUCTION LAYER
 FROM base AS prod-installer
 COPY --from=pruner /app/json-pruned/json/ .
-RUN --mount=type=cache,id=npm,target=/root/.npm npm ci --omit=dev
+RUN --mount=type=cache,id=npm,target=/root/.npm npm i --omit=dev
 
 
 # STAGE 7 - FINAL LAYER (That runs production image)
-FROM node:20-bookworm-slim AS runner
+FROM node:24-bookworm-slim AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 USER node
