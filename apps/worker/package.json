@@ -9,7 +9,7 @@
     "start": "node dist/src/main.js"
   },
   "keywords": [],
-  "author": "",
+  "author": "Salman",
   "license": "ISC",
   "type": "module",
   "dependencies": {

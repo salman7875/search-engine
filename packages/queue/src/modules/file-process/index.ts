@@ -44,16 +44,23 @@ export const main = (docs: any) => {
             const passageText = words.slice(i, i + CHUNK).join(" ")
             const stemTokens = quicker.generateTokens(passageText);
 
-            const countMap = new Map();
-            for (const stemToken of stemTokens) {
-                countMap.set(stemToken, (countMap.get(stemToken) || 0) + 1);
+            const occuranceMap = new Map();
+            for (const { stem: stemToken, pos: position } of stemTokens) {
+                occuranceMap.set(stemToken, (occuranceMap.get(stemToken) || 0) + 1);
+                const occurance = occuranceMap.get(stemToken)
+                if (!occurance) {
+                    occurance.push(position)
+                } else {
+                    occuranceMap.set(stemToken, [position])
+                }
             }
 
-            for (const [stemToken, count] of countMap) {
+            for (const [stemToken, ps] of occuranceMap) {
                 let passage = invertedMap.get(stemToken);
-                if (!passage) invertedMap.set(stemToken, ( passage = { units: [], tf: [] } ))
+                if (!passage) invertedMap.set(stemToken, (passage = { units: [], tf: [], pos: [] }))
                 passage.units.push(unitId)
-                passage.tf.push(count)
+                passage.tf.push(ps.length)
+                passage.pos.push(ps)
             }
 
             const payload = { id: unitId, docId, title, text: passageText, len: stemTokens.length }
@@ -72,24 +79,43 @@ export const main = (docs: any) => {
             if (i + CHUNK >= words.length) break
         }
     }
-    if (buf.length) writeLine(unitFd, buf) 
+    if (buf.length) writeLine(unitFd, buf)
     fs.closeSync(unitFd)
+    unitId += 1
 
     const postingsFd = fs.openSync(path.join(TMP_DIR, "postings.ndjson"), "w")
+    const positionsFd = fs.openSync(path.join(TMP_DIR, "positions.ndjson"), "w")
+
     const lexicon: any = {};
     const phoneticMap: any = {};
     let ppos = 0;
     buf = [];
 
+    let xbuf = []
+    let xpos = 0;
+
     const invertedKeys = [...invertedMap.keys()].sort()
 
     for (const ikey of invertedKeys) {
-        const { units, tf } = invertedMap.get(ikey);
+        const { units, tf, pos: position } = invertedMap.get(ikey);
         const pairs = units.map((unit: number, idx: number) => [unit, tf[idx]])
+
+        const xline = JSON.stringify(position.map((p: number, i: number) => i > 0 ? p - position[i - 1] : p))
+        const xlen = Buffer.byteLength(xline)
+
+        xbuf.push(xline + "\n")
+        xpos += xlen + 1
+
+        if (xbuf.length >= BUFFER) {
+            writeLine(positionsFd, xbuf)
+            xbuf = []
+        }
+
         const line = JSON.stringify(pairs);
         const len = Buffer.byteLength(line)
+
         buf.push(line + "\n");
-        lexicon[ikey] = { df: units.length, off: ppos, len }
+        lexicon[ikey] = { df: units.length, off: ppos, len, pOff: xpos, pLen: xlen }
         ppos += len + 1
 
         if (buf.length >= BUFFER) {
@@ -105,10 +131,13 @@ export const main = (docs: any) => {
         }
     }
 
+    if (xbuf.length) writeLine(positionsFd, xbuf)
+    fs.closeSync(positionsFd)
+
     if (buf.length) writeLine(postingsFd, buf)
     fs.closeSync(postingsFd)
 
-    const N = docs.length;
+    const N = unitId;
     const avgLen = N ? lens.reduce((a, c) => a + c, 0) / N : 0
 
     writeToFile("meta.json", { N, avgLen, lens, timestamp: new Date().toISOString() })

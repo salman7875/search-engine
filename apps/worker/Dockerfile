@@ -8,11 +8,6 @@ RUN turbo prune --scope=@repo/worker --docker --out-dir=json-pruned
 
 # STAGE 2 - BASE LAYER (includes build dependencies for native packages like SQLite/Sharp)
 FROM node:24-bookworm-slim AS base
-RUN apt-get update && apt-get install -y \
-    python3 \
-    make \
-    g++ \
-    && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 

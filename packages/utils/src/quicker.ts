@@ -1,5 +1,5 @@
 import natural from "natural"
-import {eng} from "./stopwords/stopword_eng.js"
+import { eng } from "./stopwords/stopword_eng.js"
 
 const tokenizer = new natural.WordTokenizer()
 const dm = new natural.DoubleMetaphone()
@@ -18,20 +18,21 @@ const stem = (token: string) => {
 }
 
 const generateTokens = (text: string) => {
-    let tokens = []
-
-    for (const token of tokenizer.tokenize(text.toLowerCase())) {
+    let output = []
+    const tokens = tokenizer.tokenize(text.toLowerCase())
+    for (let i = 0; i < tokens.length; i++) {
+        const token = tokens[i] as string
         if (hasWord.has(token)) continue;
-        tokens.push(stem(token))
+        output.push({ stem: stem(token), pos: 1 })
     }
-    return tokens
+    return output
 }
 
 const generatePhoneticTokens = (token: string) => {
     let cache = phoneticCache.get(token)
     if (!cache) {
         cache = []
-        if (token.length >= 3 && /^[a-z]+$/.test(token)){
+        if (token.length >= 3 && /^[a-z]+$/.test(token)) {
             const [primary = "", secondary = ""] = dm.process(token, 6)
             cache.push(primary)
             if (secondary && secondary !== primary) {
