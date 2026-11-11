@@ -23,7 +23,7 @@ const generateTokens = (text: string) => {
     for (let i = 0; i < tokens.length; i++) {
         const token = tokens[i] as string
         if (hasWord.has(token)) continue;
-        output.push({ stem: stem(token), pos: 1 })
+        output.push({ stem: stem(token), pos: i })
     }
     return output
 }

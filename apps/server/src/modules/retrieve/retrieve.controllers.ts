@@ -1,14 +1,12 @@
 import type { Request, Response } from 'express';
 import { quicker } from '@repo/utils';
+import fs from 'fs';
 
-import { IndexData } from './retreive.types.js';
+import { IndexData, LexiconEntry } from './retreive.types.js';
 import { retriveService } from './retrieve.services.js';
 import { retrieveUtils } from './retrieve.utils.js';
 
-
-
 let index: IndexData | undefined;
-
 
 const k1 = 1.5;
 const B = 0.75;
@@ -30,7 +28,7 @@ const getAllDocs = async (req: Request, res: Response) => {
     const scoreMap = new Map()
     const tokens = quicker.generateTokens(query)
 
-    for (const token of new Set(tokens)) {
+    for (const { stem: token, pos } of new Set(tokens)) {
       for (const { term, weight } of retriveService.resolveToken(searchIndex, token)) {
         const entry = searchIndex.lexicon[term];
         if (!entry) {
@@ -78,6 +76,71 @@ const getAllDocs = async (req: Request, res: Response) => {
   }
 };
 
+const helper = {
+  k1: 1.2,
+  B: 0.75,
+}
+
+
+const fetchDocs = async (req: Request, res: Response) => {
+  const { query, lm } = req.query as { query: string, lm: string };
+  const limit = parseInt(lm)
+  const scoreMap = new Map()
+
+  const phrases = [...query.matchAll(/"([^"]+)"/g)].map(match => match[1]!)
+  let rest = query.replace(/"[^"]+"/g, " ")
+
+  try {
+    index ??= retriveService.loadIndex();
+    if (!index) {
+      return res.status(503).json({
+        success: false,
+        message: 'Search index is not ready yet.',
+      });
+    }
+    for (const phrase of phrases) {
+      const q = quicker.generateTokens(phrase)
+      if (q.length === 0) continue
+      if (q.length === 1) {
+        rest += " " + phrase;
+        continue
+      }
+      const hits = retriveService.phraseMatches(index, q)
+      for (const { unitId, tf } of hits) {
+        scoreMap.set(unitId, retriveService.bm25(tf, hits.length, index.meta.lens[unitId] as number, index.meta))
+      }
+    }
+
+    const stems = new Set(quicker.generateTokens(rest).map((t: { stem: string }) => t.stem))
+    for (const stem of stems) {
+      for (const { term, weight } of retriveService.resolveToken(index, stem)) {
+        const { df } = index.lexicon[term] as LexiconEntry
+        for (const [unitId, tf] of retriveService.getPostings(index, term)) {
+          scoreMap.set(unitId, weight * retriveService.bm25(tf, df, index.meta.lens[unitId] as number, index.meta))
+        }
+      }
+    }
+
+    const best = new Map();
+    for (const [unitId, score] of [...scoreMap].sort((a, b) => b[1] - a[1])) {
+      const unit = retriveService.getUnit(index, unitId)
+      if (!best.has(unitId)) {
+        best.set(unitId, { ...unit, score, snippet: unit.text.slice(0, 200) })
+        if (best.size >= limit) break;
+      }
+    }
+
+    return [...best.values()]
+  } catch (err) {
+    res.status(500).json({
+      success: false,
+      message: 'Something went wrong!',
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export const retrieveController = {
   getAllDocs,
+  fetchDocs
 };

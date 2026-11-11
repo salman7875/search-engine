@@ -1,4 +1,7 @@
 import { createFileProcessWorker } from "@repo/queue";
+import { quicker } from '@repo/utils'
+
+console.log(quicker.generateTokens("the refund policy and the refund"))
 
 const start = async () => {
   try {

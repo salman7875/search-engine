@@ -2,11 +2,14 @@ export type LexiconEntry = {
   df: number;
   off: number;
   len: number;
+  pOff: number;
+  pLen: number;
 };
 
 export type IndexData = {
   units: Buffer;
   postings: Buffer;
+  positions: Buffer;
   unitOffsets: number[];
   meta: {
     N: number;
