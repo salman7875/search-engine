@@ -118,9 +118,9 @@ const phraseMatches = (index: IndexData, q: { stem: string, pos: number }[]) => 
 
 
 const bm25 = (tf: number, df: number, len: number, meta: IndexData['meta']) => {
-  const idf = Math.log(1 + (meta.N - df + 0.5) / (df * 0.5))
+  const idf = Math.log(1 + (meta.N - df + 0.5) / (df + 0.5))
   const norm = 1 - B + (B * len) / meta.avgLen
-  return idf * ((tf * (k1 + 1)) / (tf + k1 + norm))
+  return idf * ((tf * (k1 + 1)) / (tf + k1 * norm))
 }
 
 export const retriveService = {

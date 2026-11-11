@@ -76,16 +76,14 @@ const getAllDocs = async (req: Request, res: Response) => {
   }
 };
 
-const helper = {
-  k1: 1.2,
-  B: 0.75,
-}
-
-
 const fetchDocs = async (req: Request, res: Response) => {
   const { query, lm } = req.query as { query: string, lm: string };
   const limit = parseInt(lm)
+
   const scoreMap = new Map()
+  const insertScore = (unitId: number, score: number) => {
+    scoreMap.set(unitId, (scoreMap.get(unitId) || 0) + score)
+  }
 
   const phrases = [...query.matchAll(/"([^"]+)"/g)].map(match => match[1]!)
   let rest = query.replace(/"[^"]+"/g, " ")
@@ -107,7 +105,7 @@ const fetchDocs = async (req: Request, res: Response) => {
       }
       const hits = retriveService.phraseMatches(index, q)
       for (const { unitId, tf } of hits) {
-        scoreMap.set(unitId, retriveService.bm25(tf, hits.length, index.meta.lens[unitId] as number, index.meta))
+        insertScore(unitId, retriveService.bm25(tf, hits.length, index.meta.lens[unitId] as number, index.meta))
       }
     }
 
@@ -116,7 +114,7 @@ const fetchDocs = async (req: Request, res: Response) => {
       for (const { term, weight } of retriveService.resolveToken(index, stem)) {
         const { df } = index.lexicon[term] as LexiconEntry
         for (const [unitId, tf] of retriveService.getPostings(index, term)) {
-          scoreMap.set(unitId, weight * retriveService.bm25(tf, df, index.meta.lens[unitId] as number, index.meta))
+          insertScore(unitId, weight * retriveService.bm25(tf, df, index.meta.lens[unitId] as number, index.meta))
         }
       }
     }
@@ -124,13 +122,13 @@ const fetchDocs = async (req: Request, res: Response) => {
     const best = new Map();
     for (const [unitId, score] of [...scoreMap].sort((a, b) => b[1] - a[1])) {
       const unit = retriveService.getUnit(index, unitId)
-      if (!best.has(unitId)) {
-        best.set(unitId, { ...unit, score, snippet: unit.text.slice(0, 200) })
+      if (!best.has(unit.docId)) {
+        best.set(unit.docId, { ...unit, score, snippet: unit.text.slice(0, 200) })
         if (best.size >= limit) break;
       }
     }
 
-    return [...best.values()]
+    return res.json({ success: true, data: [...best.values()] })
   } catch (err) {
     res.status(500).json({
       success: false,
